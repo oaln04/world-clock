@@ -1,4 +1,3 @@
-const body = document.body;
 const THEME_KEY = 'theme-preference';
 
 function getToggle() {
@@ -7,12 +6,13 @@ function getToggle() {
 
 function applyLight(on) {
   const html = document.documentElement;
+  const body = document.body;
   if (on) {
     html.classList.add('light');
-    body.classList.add('light');
+    if (body) body.classList.add('light');
   } else {
     html.classList.remove('light');
-    body.classList.remove('light');
+    if (body) body.classList.remove('light');
   }
 }
 
@@ -59,14 +59,17 @@ function setThemeToggle() {
   const toggleEl = getToggle();
   if (!toggleEl) return;
 
-  toggleEl.textContent = document.documentElement.classList.contains('light') ? '☀️' : '🌙';
+  function refreshButton() {
+    toggleEl.textContent = document.documentElement.classList.contains('light') ? '☀️' : '🌙';
+  }
 
-  toggleEl.onclick = () => {
+  refreshButton();
+  toggleEl.addEventListener('click', () => {
     const isLight = document.documentElement.classList.contains('light');
     applyLight(!isLight);
-    toggleEl.textContent = !isLight ? '☀️' : '🌙';
     localStorage.setItem(THEME_KEY, !isLight ? 'light' : 'dark');
-  };
+    refreshButton();
+  });
 }
 
 function setYear() {

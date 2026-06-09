@@ -35,7 +35,7 @@
 <body>
   <nav class="nav">
     <a href="https://www.oaln04.xyz" class="nav-brand">← Back</a>
-    <button id="toggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
+    <button type="button" id="toggle" class="theme-toggle" aria-label="Toggle theme">🌙</button>
   </nav>
 
   <div class="cursor-dot" id="cursor-dot" aria-hidden="true"></div>
@@ -96,25 +96,6 @@
 
   <script src="theme.js"></script>
   <script>
-  (function() {
-    var toggle = document.getElementById('toggle');
-    var key = 'theme-preference';
-    function setButton() {
-      var light = document.documentElement.classList.contains('light');
-      toggle.textContent = light ? '☀️' : '🌙';
-    }
-    function updateTheme() {
-      var light = document.documentElement.classList.toggle('light');
-      document.body.classList.toggle('light', light);
-      localStorage.setItem(key, light ? 'light' : 'dark');
-      setButton();
-    }
-    if (toggle) {
-      toggle.addEventListener('click', updateTheme);
-      setButton();
-    }
-  })();
-
   ;(function() {
     var dot = document.getElementById('cursor-dot');
     var ring = document.getElementById('cursor-ring');
