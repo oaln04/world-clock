@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Clock - Omar Al Nuaimi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d0a14;
+            --bg-secondary: #150f20;
+            --bg-card: rgba(255, 255, 255, 0.025);
+            --bg-card-hover: rgba(255, 255, 255, 0.05);
+            --accent-primary: #a78bfa;
+            --accent-secondary: #7c3aed;
+            --accent-gradient: linear-gradient(135deg, #c4b5fd 0%, #7c3aed 100%);
+            --text-primary: #ffffff;
+            --text-secondary: #9a8bbf;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --glass-bg: rgba(255, 255, 255, 0.015);
+            --glass-border: rgba(167, 139, 250, 0.12);
+            --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.2);
+            --cursor-color: #a78bfa;
+            --cursor-size: 36px;
+        }
+        
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        @media (pointer: fine) {
+            *, *::before, *::after { cursor: none !important; }
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            background-image:
+                radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.18) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(167, 139, 250, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 20% 80%, rgba(109, 40, 217, 0.06) 0%, transparent 40%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .cursor-dot {
+            position: fixed;
+            top: 0; left: 0;
+            width: 6px; height: 6px;
+            background: var(--cursor-color);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s ease, height 0.2s ease, opacity 0.2s ease;
+        }
+        
+        .cursor-ring {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--cursor-size);
+            height: var(--cursor-size);
+            border: 1.5px solid var(--cursor-color);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            opacity: 0.5;
+            transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                        height 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.35s ease,
+                        border-color 0.35s ease,
+                        background 0.35s ease;
+        }
+        
+        .cursor-ring.hovering {
+            width: 56px;
+            height: 56px;
+            opacity: 0.25;
+            background: rgba(167, 139, 250, 0.06);
+        }
+
+        @media (pointer: coarse) {
+            .cursor-dot, .cursor-ring { display: none !important; }
+        }
+
+        #bg-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+        }
+
+        .container { max-width: 900px; width: 100%; margin: 0 auto; padding: 40px 20px; position: relative; z-index: 1; }
+
+        .back-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: var(--text-secondary); text-decoration: none;
+            margin-bottom: 32px; transition: all 0.3s ease; cursor: pointer;
+        }
+        
+        .back-link:hover { color: var(--accent-primary); transform: translateX(-4px); }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700;
+            letter-spacing: -0.03em;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 12px;
+        }
+
+        .subtitle { color: var(--text-secondary); font-size: 1.1rem; font-weight: 400; margin-bottom: 40px; }
+
+        .bento-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px; margin-bottom: 40px;
+        }
+
+        .time-card {
+            background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 28px;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+
+        .time-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--accent-gradient); opacity: 0; transition: opacity 0.35s ease;
+        }
+
+        .time-card:hover { background: var(--bg-card-hover); transform: translateY(-4px); box-shadow: var(--shadow-glow); }
+        .time-card:hover::before { opacity: 1; }
+
+        .city-name { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .city-date { font-size: 0.78rem; color: rgba(154, 139, 191, 0.5); margin-bottom: 12px; }
+
+        .time-display {
+            font-family: 'IBM Plex Mono', monospace; font-size: clamp(1.5rem, 3vw, 1.85rem);
+            font-weight: 500; color: var(--text-primary); letter-spacing: -0.02em;
+        }
+
+        .time-seconds { font-size: 0.75em; opacity: 0.4; }
+        .timezone-offset { font-size: 0.75rem; color: var(--accent-primary); opacity: 0.6; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+
+        .live-indicator { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 0.75rem; color: var(--accent-primary); }
+        .live-dot { width: 6px; height: 6px; background: var(--accent-primary); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+
+        .daynight-badge {
+            position: absolute; top: 20px; right: 20px;
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+
+        .daynight-badge.day { background: rgba(255, 200, 50, 0.12); }
+        .daynight-badge.night { background: rgba(100, 100, 200, 0.12); }
+
+        .content-card {
+            background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 48px;
+            margin: 40px 0; position: relative; overflow: hidden;
+        }
+
+        .content-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-gradient); opacity: 0.7; }
+
+        .content-text { color: var(--text-secondary); line-height: 1.8; font-size: 1.05rem; }
+        .content-text p { margin-bottom: 20px; }
+
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 32px; }
+
+        .feature-item { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; transition: all 0.3s ease; }
+        .feature-item:hover { background: var(--bg-card-hover); border-color: var(--accent-primary); transform: translateY(-2px); }
+
+        .feature-icon { width: 40px; height: 40px; background: var(--accent-gradient); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+        .feature-title { color: var(--text-primary); font-weight: 600; margin-bottom: 6px; }
+        .feature-desc { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px;
+            border-radius: 12px; font-size: 0.95rem; font-weight: 600;
+            text-decoration: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer; border: none; font-family: 'Outfit', sans-serif;
+        }
+
+        .btn-primary { background: var(--accent-gradient); color: var(--bg-primary); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4); }
+
+        .actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 32px; }
+
+        .orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; animation: orbFloat 12s ease-in-out infinite alternate; }
+        .orb-1 { width: 300px; height: 300px; background: rgba(124, 58, 237, 0.1); top: -100px; left: -100px; }
+        .orb-2 { width: 250px; height: 250px; background: rgba(167, 139, 250, 0.08); bottom: -80px; right: -80px; animation-delay: -6s; }
+        @keyframes orbFloat { from { transform: translate(0, 0) scale(1); } to { transform: translate(30px, 20px) scale(1.1); } }
+
+        @media (max-width: 600px) { 
+            .content-card { padding: 32px 24px; } 
+        }
+    </style>
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <div class="cursor-dot" id="cursor-dot" aria-hidden="true"></div>
+    <div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
+
+    <canvas id="bg-canvas" aria-hidden="true"></canvas>
+    <div class="orb orb-1" aria-hidden="true"></div>
+    <div class="orb orb-2" aria-hidden="true"></div>
+
+    <main class="container">
+        <a href="../index.html" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            Back to Portfolio
+        </a>
+
+        <h1>World Clock</h1>
+        <p class="subtitle">Real-time clocks across timezones</p>
+
+        <div class="bento-grid" id="clock-grid"></div>
+
+        <div class="content-card">
+            <h2>About This Project</h2>
+            <div class="content-text">
+                <p>World Clock is a real-time application that displays the current time across multiple timezones with precision and elegance. It provides instant updates and a beautiful, responsive interface that works seamlessly across all screen sizes.</p>
+                <p>The application uses JavaScript's Intl API to handle timezone conversions and updates every second. Each timezone card displays the local time, date, and timezone offset, with visual indicators for day/night cycles.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+                        <div class="feature-title">Real-time Updates</div>
+                        <div class="feature-desc">Live clock updates every second</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                        <div class="feature-title">Multiple Timezones</div>
+                        <div class="feature-desc">Dubai, Baghdad, New York, and more</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></div>
+                        <div class="feature-title">Day/Night Aware</div>
+                        <div class="feature-desc">Visual indicators for day and night</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
+                        <div class="feature-title">Responsive Design</div>
+                        <div class="feature-desc">Works on all screen sizes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="https://github.com/oaln04/portfolio" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                View on GitHub ↗
+            </a>
+        </div>
+    </main>
+
+    <script>
+    /* ══════════════════════════════════════
+       Smooth Custom Cursor
+       ══════════════════════════════════════ */
+    (function() {
+        var dot = document.getElementById("cursor-dot");
+        var ring = document.getElementById("cursor-ring");
+        if (!dot || !ring) return;
+
+        if (window.matchMedia("(pointer: coarse)").matches) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+        var mouseX = -100, mouseY = -100;
+        var ringX = -100, ringY = -100;
+        var isVisible = false;
+
+        document.addEventListener("mousemove", function(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            dot.style.left = mouseX + "px";
+            dot.style.top = mouseY + "px";
+
+            if (!isVisible) {
+                isVisible = true;
+                ringX = mouseX;
+                ringY = mouseY;
+                ring.style.left = ringX + "px";
+                ring.style.top = ringY + "px";
+                dot.style.opacity = "1";
+                ring.style.opacity = "0.5";
+            }
+        });
+
+        document.addEventListener("mouseleave", function() {
+            isVisible = false;
+            dot.style.opacity = "0";
+            ring.style.opacity = "0";
+        });
+
+        document.addEventListener("mouseenter", function() {
+            isVisible = true;
+            dot.style.opacity = "1";
+            ring.style.opacity = "0.5";
+        });
+
+        var lerpSpeed = 0.15;
+        function animateRing() {
+            ringX += (mouseX - ringX) * lerpSpeed;
+            ringY += (mouseY - ringY) * lerpSpeed;
+            ring.style.left = ringX + "px";
+            ring.style.top = ringY + "px";
+            requestAnimationFrame(animateRing);
+        }
+        requestAnimationFrame(animateRing);
+
+        var hoverTargets = "a, button, input, textarea, [role='button'], .time-card, .feature-item, .back-link";
+        document.addEventListener("mouseover", function(e) {
+            if (e.target.closest(hoverTargets)) {
+                ring.classList.add("hovering");
+            }
+        });
+        document.addEventListener("mouseout", function(e) {
+            if (e.target.closest(hoverTargets)) {
+                ring.classList.remove("hovering");
+            }
+        });
+    })();
+
+    /* ══════════════════════════════════════
+       Config
+       ══════════════════════════════════════ */
+    const CITIES = [
+        { id: "dubai",    name: "Dubai, UAE",    tz: "Asia/Dubai" },
+        { id: "baghdad",  name: "Baghdad, Iraq",  tz: "Asia/Baghdad" },
+        { id: "new_york", name: "New York, USA",  tz: "America/New_York" },
+    ];
+
+    /* ══════════════════════════════════════
+       Clock Cards
+       ══════════════════════════════════════ */
+    function buildClockGrid() {
+        var grid = document.getElementById("clock-grid");
+        grid.innerHTML = "";
+        CITIES.forEach(function(city) {
+            var card = document.createElement("div");
+            card.className = "time-card";
+            card.innerHTML =
+                '<div class="daynight-badge" id="dn-' + city.id + '"></div>' +
+                '<div class="city-name">' + city.name + '</div>' +
+                '<div class="city-date" id="date-' + city.id + '"></div>' +
+                '<div class="time-display" id="time-' + city.id + '">--:--:--</div>' +
+                '<div class="timezone-offset" id="offset-' + city.id + '"></div>' +
+                '<div class="live-indicator"><span class="live-dot"></span>Live</div>';
+            grid.appendChild(card);
+        });
+    }
+
+    function updateClocks() {
+        var now = new Date();
+        CITIES.forEach(function(city) {
+            var timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: city.tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+            var dateFmt = new Intl.DateTimeFormat("en-US", { timeZone: city.tz, weekday: "long", year: "numeric", month: "long", day: "numeric" });
+            var hourFmt = new Intl.DateTimeFormat("en-US", { timeZone: city.tz, hour: "numeric", hour12: false });
+            var parts = timeFmt.formatToParts(now);
+            var h = parts.find(function(p) { return p.type === "hour"; }).value;
+            var m = parts.find(function(p) { return p.type === "minute"; }).value;
+            var s = parts.find(function(p) { return p.type === "second"; }).value;
+            var timeEl = document.getElementById("time-" + city.id);
+            var dateEl = document.getElementById("date-" + city.id);
+            var dnEl   = document.getElementById("dn-" + city.id);
+            var offEl  = document.getElementById("offset-" + city.id);
+            if (timeEl) timeEl.innerHTML = h + ":" + m + '<span class="time-seconds">:' + s + "</span>";
+            if (dateEl) dateEl.textContent = dateFmt.format(now);
+            var hour = parseInt(hourFmt.format(now), 10);
+            if (dnEl) {
+                var isDay = hour >= 6 && hour < 18;
+                dnEl.className = "daynight-badge " + (isDay ? "day" : "night");
+                dnEl.innerHTML = isDay
+                    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffc832" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+                    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8888cc" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+            }
+            if (offEl) {
+                var offsetPart = new Intl.DateTimeFormat("en-US", { timeZone: city.tz, timeZoneName: "shortOffset" }).formatToParts(now).find(function(p) { return p.type === "timeZoneName"; });
+                offEl.textContent = offsetPart ? offsetPart.value : "";
+            }
+        });
+    }
+
+    /* ══════════════════════════════════════
+       Background Particles
+       ══════════════════════════════════════ */
+    function initBgCanvas() {
+        var canvas = document.getElementById("bg-canvas");
+        var ctx = canvas.getContext("2d");
+        var width, height, particles, mouse;
+        var prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        mouse = { x: -9999, y: -9999 };
+        document.addEventListener("mousemove", function(e) { mouse.x = e.clientX; mouse.y = e.clientY; });
+        document.addEventListener("mouseleave", function() { mouse.x = -9999; mouse.y = -9999; });
+        function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        function createParticles() {
+            var count = Math.min(Math.floor((width * height) / 18000), 80);
+            particles = [];
+            for (var i = 0; i < count; i++) {
+                particles.push({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3, r: Math.random() * 1.5 + 0.5, alpha: Math.random() * 0.4 + 0.1 });
+            }
+        }
+        function draw() {
+            if (prefersReduced) return;
+            ctx.clearRect(0, 0, width, height);
+            for (var i = 0; i < particles.length; i++) {
+                var p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+                var dx = p.x - mouse.x, dy = p.y - mouse.y, dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 120 && dist > 0) { var force = (120 - dist) / 120 * 0.8; p.x += (dx / dist) * force; p.y += (dy / dist) * force; }
+                ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.r), 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(167, 139, 250, " + p.alpha + ")"; ctx.fill();
+            }
+            for (var i = 0; i < particles.length; i++) {
+                for (var j = i + 1; j < particles.length; j++) {
+                    var dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 140) {
+                        ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = "rgba(167, 139, 250, " + (0.06 * (1 - dist / 140)) + ")"; ctx.lineWidth = 0.5; ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+        resize(); createParticles(); draw();
+        window.addEventListener("resize", function() { resize(); createParticles(); });
+    }
+
+    /* ══════════════════════════════════════
+       Init
+       ══════════════════════════════════════ */
+    buildClockGrid();
+    updateClocks();
+    setInterval(updateClocks, 1000);
+    initBgCanvas();
+    </script>
+</body>
+</html>
